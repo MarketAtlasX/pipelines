@@ -245,6 +245,10 @@ def build_pipelines(settings: Optional[PipelineSettings] = None) -> PipelineFact
     factory.register("explainability_analogs", HistoricalAnalogsPipeline())
     factory.register("explainability_generator", ExplanationGeneratorPipeline())
 
+    # ── Dynamic World State ───────────────────────────────────
+    from world_state.pipeline.update import StateUpdatePipeline
+    factory.register("world_state_update", StateUpdatePipeline())
+
     # ── Daily Pipeline ────────────────────────────────────────
     from pipelines.daily.pipeline import DailyPipeline
     factory.register("daily", DailyPipeline())
@@ -256,11 +260,12 @@ def build_pipelines(settings: Optional[PipelineSettings] = None) -> PipelineFact
     # ── Build the master DAG ──────────────────────────────────
     master_dag = factory.create_dag("master")
 
-    # Ingestion → NLP → KG → Features → Training → Forecasting
+    # World State sits at the center — every pipeline feeds into it
+    # Ingestion → NLP → KG → World State → Features → Training → Forecasting
     for node in [
         "ingestion_gdelt", "ingestion_newsapi", "ingestion_rss",
         "nlp_embedding", "nlp_entities", "nlp_sentiment", "nlp_summarization",
-        "kg_build", "feature_engineering", "signal_generation",
+        "kg_build", "world_state_update", "feature_engineering", "signal_generation",
         "training", "forecasting", "backtesting",
         "event_similarity", "explainability_shap",
         "intel_global_news", "intel_conflict", "intel_economic",
@@ -279,7 +284,8 @@ def build_pipelines(settings: Optional[PipelineSettings] = None) -> PipelineFact
     for nlp in nlp_nodes:
         master_dag.add_edge(nlp, "kg_build")
 
-    master_dag.add_edge("kg_build", "feature_engineering")
+    master_dag.add_edge("kg_build", "world_state_update")
+    master_dag.add_edge("world_state_update", "feature_engineering")
     master_dag.add_edge("feature_engineering", "signal_generation")
     master_dag.add_edge("signal_generation", "training")
     master_dag.add_edge("training", "forecasting")
@@ -292,10 +298,12 @@ def build_pipelines(settings: Optional[PipelineSettings] = None) -> PipelineFact
     master_dag.add_edge("intel_global_news", "intel_conflict")
     master_dag.add_edge("intel_global_news", "intel_economic")
 
-    # Daily and realtime as top-level workflows
+    # World state also triggered by daily and realtime pipelines
     master_dag.add_edge("ingestion_gdelt", "daily")
+    master_dag.add_edge("daily", "world_state_update")
     master_dag.add_edge("ingestion_newsapi", "realtime")
     master_dag.add_edge("ingestion_rss", "realtime")
+    master_dag.add_edge("realtime", "world_state_update")
 
     logger.info(
         "MarketAtlas Pipelines Factory initialized with %d pipelines across %d DAG nodes",
