@@ -25,6 +25,7 @@ class PipelineType(str, Enum):
     ECONOMIC_INTEL = "economic_intelligence"
     ALTERNATIVE_INTEL = "alternative_intelligence"
     GLOBAL_NEWS = "global_news"
+    WORLD_STATE = "world_state"
 
 
 class PipelineStatus(str, Enum):
