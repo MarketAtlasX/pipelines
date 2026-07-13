@@ -1,253 +1,287 @@
 # MarketAtlas Pipelines
 
-A modular, event-driven data pipeline factory for geopolitical risk intelligence, market impact analysis, and alternative data processing. This is the **data factory** — it collects, cleans, transforms, enriches, and stores event data at scale.
+> *The data factory of MarketAtlas — 42 pipelines across 14 domains, orchestrated by a DAG brain.*
 
-## Architecture
+A modular, event-driven **data pipeline factory** for geopolitical risk intelligence, market impact analysis, and alternative data processing. This is the engine that collects, cleans, transforms, enriches, stores, analyzes, and forecasts event data at scale.
 
-```
-                    ┌────────────────────────────────────────────┐
-                    │           PipelineFactory (Brain)          │
-                    │  ┌──────────┐  ┌─────────┐  ┌──────────┐ │
-                    │  │  DAG     │  │Scheduler│  │ Executor │ │
-                    │  │Orchestrat│  │  Cron   │  │  Async   │ │
-                    │  └──────────┘  └─────────┘  └──────────┘ │
-                    └────────────────────────────────────────────┘
-                                      │
-        ┌──────────────┬──────────────┼──────────────┬──────────────┐
-        ▼              ▼              ▼              ▼              ▼
-  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐
-  │Ingestion │  │   NLP    │  │    KG    │  │ Features │  │  Intel   │
-  │ GDElT    │  │ Embedding │  │ Nodes    │  │ Engineer │  │ Conflict │
-  │ NewsAPI  │  │ Entities  │  │ Edges    │  │ Signals  │  │ Economic │
-  │ RSS      │  │ Sentiment │  │ Queries  │  │ Store    │  │ Alt Data │
-  │ Webhooks │  │ Summarize │  │ Graph    │  │          │  │ News     │
-  └──────────┘  └──────────┘  └──────────┘  └──────────┘  └──────────┘
-        │              │              │              │              │
-        ▼              ▼              ▼              ▼              ▼
-  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐
-  │ Training │  │Forecasting│  │Backtest  │  │Similarity│  │Explain   │
-  │ Models   │  │ Prophet   │  │ Engine   │  │ Qdrant   │  │ SHAP     │
-  │ Registry │  │ LSTM      │  │ Metrics  │  │ Embed    │  │ Paths    │
-  │ Eval     │  │ Ensemble  │  │ Report   │  │ Match    │  │ Analogs  │
-  └──────────┘  └──────────┘  └──────────┘  └──────────┘  └──────────┘
-        │              │              │              │              │
-        └──────────────┴──────────────┼──────────────┴──────────────┘
-                                     ▼
-                          ┌─────────────────────┐
-                          │  Streaming / Realtime│
-                          │  Kafka → Process →   │
-                          │  WebSocket → Sink    │
-                          └─────────────────────┘
-```
+---
 
-## Quick Start
+## The "Brain": PipelineFactory
 
 ```python
-from pipelines import build_pipelines
-
-factory = build_pipelines()
-
-# Run a single pipeline
-outcome = await factory.run("event_similarity", event=my_event)
-
-# Run all pipelines in DAG order
-results = await factory.run_all()
-
-# Start the scheduler for cron-triggered pipelines
-await factory.start_scheduler()
+PipelineFactory  # The master orchestrator
+  ├── Registers 42 pipelines across 14 domains
+  ├── Builds a DAG for dependency-aware execution
+  ├── Wires schedules (cron, event, webhook triggers)
+  ├── Runs pipelines in topological order with asyncio.gather()
+  └── Tracks every run with metrics and outcomes
 ```
 
-## Pipeline Catalog (42 pipelines)
+---
 
-### Data Factory (`data_factory/`)
-The foundational layer — every pipeline flows through these stages:
+## End-to-End Data Flow
 
-| Module | Purpose |
-|--------|---------|
-| **Collector** | Fetches raw data from GDELT, NewsAPI, RSS feeds, webhooks |
-| **Cleaner** | Deduplicates, normalizes, and validates events |
-| **Transformer** | Maps schemas and builds unified event objects |
-| **Enricher** | Adds geo-location, entity linking, temporal context |
-| **Store** | Abstract storage layer (Postgres, Redis, S3, Qdrant) |
+```
+                     COLLECT                           CLEAN                         TRANSFORM
+   ┌─────────────────────────────────────────────────────────────────────────────────────────────┐
+   │  GDELT ──┐                                                                                  │
+   │  NewsAPI ─┤  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐          │
+   │  RSS ────┼─►│ Collect  │─►│  Clean   │─►│Transform │─►│ Enrich   │─►│  Store   │          │
+   │  Webhook─┘  └──────────┘  └──────────┘  └──────────┘  └──────────┘  └──────────┘          │
+   │                                                                                             │
+   │                     ANALYZE                           FORECAST                     STREAM   │
+   │  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐       │
+   │  │Pipeline  │─►│   NLP    │─►│   KG     │─►│ Features │─►│ Training │─►│Forecast  │       │
+   │  │Factory   │  │Embeddings│  │ Nodes    │  │ Signals  │  │ Random   │  │ Prophet  │       │
+   │  │(DAG)     │  │Entities  │  │ Edges    │  │ Store    │  │ Forest   │  │ LSTM     │       │
+   │  │          │  │Sentiment │  │ Graph    │  │          │  │ Evaluate │  │ Ensemble │       │
+   │  │          │  │Summary   │  │ Queries  │  │          │  │ Registry │  │          │       │
+   │  └──────────┘  └──────────┘  └──────────┘  └──────────┘  └──────────┘  └──────────┘       │
+   │                                                                                             │
+   │              BACKTEST                     EXPLAIN                     REAL-TIME             │
+   │         ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐              │
+   │         │Simulate  │─►│ Metrics  │─►│   SHAP   │─►│   Graph  │─►│  Kafka   │              │
+   │         │  Trades  │  │ Sharpe   │  │  Paths   │  │  Analogs │  │ WebSocket│              │
+   │         │  P&L     │  │Drawdown  │  │Generator │  │  History │  │  Stream  │              │
+   │         └──────────┘  └──────────┘  └──────────┘  └──────────┘  └──────────┘              │
+   └─────────────────────────────────────────────────────────────────────────────────────────────┘
+```
 
-### Ingestion (`ingestion/`)
-- **GDELT Pipeline** — fetches from GDELT Project API (global news & conflicts)
-- **NewsAPI Pipeline** — pulls from NewsAPI.org
-- **RSS Pipeline** — consumes RSS/Atom feeds
-- **Webhook Pipeline** — receives real-time webhook payloads
+---
 
-### NLP Enrichment (`nlp/`)
-- **Embedding Pipeline** — generates vector embeddings via `sentence-transformers` (all-MiniLM-L6-v2)
-- **Entity Extraction Pipeline** — detects countries, organizations, and key entities
-- **Sentiment Pipeline** — lexicon-based positive/negative/neutral scoring
-- **Summarization Pipeline** — extractive summarization of articles
+## 42 Pipelines Across 14 Domains
 
-### Knowledge Graph (`kg/`)
-- **Node Builder Pipeline** — creates graph nodes for events, countries, organizations
-- **Edge Builder Pipeline** — infers relationships (MENTIONS, AFFECTS, LOCATED_IN)
-- **Graph Build Pipeline** — constructs a NetworkX `DiGraph` with centrality analysis
-- **Graph Query Pipeline** — shortest path, neighbors, subgraph, and impact path queries
+| Domain | Pipelines | What They Do |
+|--------|-----------|-------------|
+| **Ingestion** | GDELT, NewsAPI, RSS, Webhooks | Collect raw data from 4 sources |
+| **NLP** | Embedding, Entities, Sentiment, Summarization | Extract meaning from text |
+| **Knowledge Graph** | Nodes, Edges, Graph, Queries | Build & query relationship networks |
+| **Features** | Engineering, Signals, Store | Extract ML features & generate signals |
+| **Training** | Trainer, Model Registry, Evaluation | Train & track ML models |
+| **Forecasting** | Prophet, LSTM, Ensemble | Predict sentiment & risk trends |
+| **Backtesting** | Engine, Metrics, Reporting | Simulate & evaluate trading strategies |
+| **Streaming** | Kafka, Processor, WebSocket, Sink | Real-time event streaming |
+| **Similarity** | Embed, Search, Match, Links | Find analogous events |
+| **Explainability** | SHAP, Graph Paths, Analogs, Generator | Understand why decisions were made |
+| **Daily** | 7-stage end-to-end pipeline | Batch processing every 24h |
+| **Real-time** | 6-stage streaming pipeline | Live event processing |
+| **Intelligence** | Conflict, Economic | Geopolitical & economic analysis |
+| **Alternative Data** | AIS, Flights, Satellite, Commodities | Non-traditional data sources |
 
-### Feature Engineering (`features/`)
-- **Feature Extraction Pipeline** — builds numeric feature vectors (sentiment, entity density, temporal signals)
-- **Signal Generation Pipeline** — generates market signals (bearish/bullish, risk levels)
-- **Feature Store Pipeline** — persists features to Redis/S3
+---
 
-### Training (`training/`)
-- **Training Pipeline** — trains a RandomForest classifier on event features
-- **Model Registry Pipeline** — manages model versions and metadata
-- **Evaluation Pipeline** — accuracy, classification report, confusion matrix
+## Pipeline Catalog (All 42)
 
-### Forecasting (`forecasting/`)
-- **Forecaster Pipeline** — projects sentiment trends 30 days forward with confidence bounds
-- **Forecast Models Pipeline** — runs Prophet-like trend decomposition and LSTM simulation
-- **Ensemble Pipeline** — weighted ensemble combining all forecast models
+### Ingestion Layer
+| Pipeline | Stages | Schedule |
+|----------|--------|----------|
+| `GDELTPipeline` | Fetch → Clean | Every 15m |
+| `NewsAPIPipeline` | Fetch → Clean | Every 30m |
+| `RSSPipeline` | Fetch → Transform | Every 1h |
+| `WebhookPipeline` | Receive → Transform | On-demand |
 
-### Backtesting (`backtesting/`)
-- **Engine Pipeline** — simulates trades based on signals, computes P&L
-- **Metrics Pipeline** — Sharpe ratio, max drawdown, win rate
-- **Reporting Pipeline** — generates structured backtest reports
-
-### Streaming (`streaming/`)
-- **Kafka Pipeline** — consumes/produces events from Kafka topics
-- **Stream Processor Pipeline** — real-time transform and filter
-- **WebSocket Pipeline** — broadcasts pipeline updates to connected clients
-- **Stream Sink Pipeline** — persists streaming results to data stores
-
-### Intelligence (`intelligence/`)
-
-| Pipeline | Source | Purpose |
+### NLP Layer
+| Pipeline | Stages | Purpose |
 |----------|--------|---------|
-| **Conflict Intelligence** | GDELT + NLP | Escalation detection, active conflict zones, trigger monitoring |
-| **Economic Intelligence** | News text | Indicator extraction (GDP, inflation, employment, trade) |
-| **AIS Vessel Tracking** | AIS data | Maritime chokepoint monitoring, anomaly detection |
-| **Flight Tracking** | ADS-B | Airspace restrictions, military movement detection |
-| **Satellite Imagery** | Satellite | Site monitoring, change detection |
-| **Commodity Flows** | Trade data | Supply chain risk, bottleneck detection |
-| **Global News** | Multi-source | Category classification, source credibility scoring |
+| `EmbeddingPipeline` | Vector generation | Sentence embeddings via all-MiniLM-L6-v2 |
+| `EntityExtractionPipeline` | Country/org extraction | Regex + keyword matching |
+| `SentimentPipeline` | Lexicon scoring | Positive/negative word counting |
+| `SummarizationPipeline` | Extractive summaries | Keyword relevance scoring |
 
-### Event Similarity (`similarity/`)
-The specific pipeline you asked for:
+### Knowledge Graph Layer
+| Pipeline | Stages | Purpose |
+|----------|--------|---------|
+| `NodeBuilderPipeline` | Event/Country/Org nodes | Typed entity creation |
+| `EdgeBuilderPipeline` | MENTIONS/AFFECTS edges | Co-occurrence + sentiment inference |
+| `KnowledgeGraphPipeline` | NetworkX DiGraph | Centrality analysis |
+| `GraphQueryPipeline` | Shortest path, neighbors, subgraph | Relationship traversal |
 
-```
-New Event → Embedding Model → Qdrant Search → Top 20 Similar Events
-→ Market Outcome Retrieval → Store Similarity Links
-```
+### Features & Signals Layer
+| Pipeline | Stages | Purpose |
+|----------|--------|---------|
+| `FeatureEngineeringPipeline` | Vector extraction, statistics | Numeric ML features |
+| `SignalGenerationPipeline` | Market risk/opportunity signals | Threshold-based |
+| `FeatureStorePipeline` | Redis persistence | Feature caching |
 
-### Explainability (`explainability/`)
+### Training Layer
+| Pipeline | Stages | Purpose |
+|----------|--------|---------|
+| `TrainingPipeline` | RandomForest (100 estimators) | Sentiment-based classification |
+| `ModelRegistryPipeline` | Register/list/get | In-memory model registry |
+| `EvaluationPipeline` | Classification report, confusion matrix | sklearn metrics |
 
-```
-Prediction → SHAP → Graph Path Extraction → Historical Analogs
-→ Explanation Generator
-```
+### Forecasting Layer
+| Pipeline | Stages | Purpose |
+|----------|--------|---------|
+| `ForecastingPipeline` | 30-day trend projection | Noise + drift + confidence bounds |
+| `ForecastModelsPipeline` | Prophet + LSTM + Ensemble | Weighted combination |
+
+### Backtesting Layer
+| Pipeline | Stages | Purpose |
+|----------|--------|---------|
+| `BacktestingPipeline` | Trade simulation | P&L, drawdown, trade count |
+| `MetricsPipeline` | Sharpe, win rate, avg return | Performance metrics |
+| `ReportingPipeline` | Structured reports | Combined results |
+
+### Streaming Layer
+| Pipeline | Stages | Purpose |
+|----------|--------|---------|
+| `KafkaPipeline` | Consume → Produce | Topic-to-topic streaming |
+| `StreamProcessorPipeline` | Transform → Filter | Signal processing |
+| `WebSocketPipeline` | Broadcast updates | Real-time client push |
+| `StreamSinkPipeline` | Redis persistence | Stream storage |
+
+### Event Similarity Layer
+| Pipeline | Stages | Purpose |
+|----------|--------|---------|
+| `EventSimilarityPipeline` | Embed → Qdrant → Match → Outcomes → Store | Find past analogs |
+
+### Explainability Layer
+| Pipeline | Stages | Purpose |
+|----------|--------|---------|
+| `SHAPPipeline` | TreeExplainer analysis | Feature importance |
+| `GraphPathPipeline` | Causal path extraction | KG-based reasoning |
+| `HistoricalAnalogsPipeline` | Sentiment/type matching | Historical precedent |
+| `ExplanationGeneratorPipeline` | NL explanation assembly | Human-readable output |
 
 ### End-to-End Pipelines
+| Pipeline | Stages | Cadence |
+|----------|--------|---------|
+| `DailyPipeline` | Dedup → Enrich → Graph → Features → Signals → Store | Every 24h |
+| `RealTimePipeline` | Kafka → Embed → Similarity → Impact → Graph → WebSocket | Continuous |
 
-**Daily Pipeline** (`daily/`)
-```
-GDELT → Deduplication → Enrichment → Graph Update → Feature Generation
-→ Signal Generation → Store Results
-```
+### Intelligence Layer
+| Pipeline | Stages | Purpose |
+|----------|--------|---------|
+| `ConflictIntelligencePipeline` | Escalation detection, active zones, trigger monitoring | Keyword analysis |
+| `EconomicIntelligencePipeline` | GDP, inflation, trade, interest rate detection | Text analysis |
+| `AISVesselTrackingPipeline` | Maritime chokepoint monitoring (Hormuz, Malacca, Suez) | Anomaly detection |
+| `FlightTrackingPipeline` | ADS-B flight tracking, airspace restrictions | Military movement detection |
+| `SatelliteImageryPipeline` | Site monitoring, change detection | Geospatial intelligence |
+| `CommodityFlowsPipeline` | Supply chain risk, bottleneck detection | Cross-asset monitoring |
+| `GlobalNewsPipeline` | GDELT + RSS collection, 10-category classification | Multi-source aggregation |
+| `NewsSourcePipeline` | Credibility scoring (Reuters=0.95, RT=0.30) | Source reliability |
 
-**Real-Time Pipeline** (`realtime/`)
-```
-New Event → Kafka → Embedding → Similarity Search → Impact Analysis
-→ Graph Update → WebSocket Push
-```
+---
 
-## Orchestration
+## DAG Orchestration
 
-The **brain** lives in `_factory.py`:
-
-- **DAG** (`orchestration/dag.py`) — Directed Acyclic Graph built on NetworkX for dependency resolution
-- **WorkflowBuilder** (`orchestration/workflow.py`) — maps DAG nodes to pipeline instances, executes in topological layers
-- **Scheduler** (`orchestration/scheduler.py`) — cron-based periodic execution
-- **Executor** (`orchestration/executor.py`) — thread-pooled async execution with error handling
-- **Triggers** (`orchestration/triggers.py`) — CronTrigger, EventTrigger, WebhookTrigger
-- **Monitor** (`orchestration/monitor.py`) — tracks every run with status, duration, and metrics
-
-### Default Schedule
-
-| Pipeline | Cadence |
-|----------|---------|
-| Daily | Every 24h |
-| Global News | Every 1h |
-| AIS Tracking | Every 30m |
-| Flight Tracking | Every 30m |
-
-## Configuration
-
-All settings are environment-driven via `PipelineSettings` (pydantic-settings).
-
-```bash
-export MA_KAFKA_BOOTSTRAP_SERVERS="localhost:9092"
-export MA_QDRANT_URL="http://localhost:6333"
-export MA_EMBEDDING_MODEL="all-MiniLM-L6-v2"
-export MA_POSTGRES_URL="postgresql+asyncpg://user:pass@localhost:5432/marketatlas"
-```
-
-Or create a `.env` file:
-
-```ini
-MA_KAFKA_BOOTSTRAP_SERVERS=localhost:9092
-MA_KAFKA_INPUT_TOPIC=raw-events
-MA_QDRANT_URL=http://localhost:6333
-MA_EMBEDDING_MODEL=all-MiniLM-L6-v2
-MA_LOG_LEVEL=INFO
-```
-
-## Data Flow
+All 42 pipelines are wired into a master DAG with proper dependency ordering:
 
 ```
-                     Collect
-                        ↓
-                      Clean
-                        ↓
-                    Transform
-                        ↓
-                     Enrich
-                        ↓
-                 ┌──── Store ────┐
-                 │               │
-            PostgreSQL         S3
-            (structured)    (archive)
-                 │               │
-              Redis           Qdrant
-            (features)     (vectors)
+Ingestion ──► NLP ──► Knowledge Graph ──► World State ──► Features ──► Signals
+  │                                                    │
+  │                                                    ▼
+  │                                          Training ──► Forecasting
+  │                                                    │
+  │                                                    ▼
+  │                                               Backtesting
+  │
+  ├──► Alternative Data ──► Intelligence
+  ├──► Event Similarity ──► Explainability
+  └──► Daily Pipeline ──► Real-time Pipeline
 ```
 
-Every event flows through the **data factory** pipeline (`data_factory/`), which ensures consistency before any downstream processing.
+---
 
-## Project Structure
+## Core Architecture
 
 ```
 pipelines/
-├── __init__.py          # Public API: PipelineFactory, build_pipelines
-├── _factory.py          # Brain: registers all 42 pipelines, builds DAG
-├── pyproject.toml       # Python project config & dependencies
-├── .gitignore
-├── .env                 # Environment variables (optional)
+├── __init__.py / _factory.py    # PipelineFactory + DAG wiring (42 pipelines)
 │
-├── core/                # Base types, Pipeline ABC, Context, Event, State
-├── config/              # Pydantic settings & pipeline schemas
-├── orchestration/       # DAG, Scheduler, Executor, Workflow, Triggers, Monitor
-├── data_factory/        # Collector, Cleaner, Transformer, Enricher, Store
+├── core/                        # Foundation
+│   ├── base.py                  # Pipeline / PipelineStage ABCs
+│   ├── types.py                 # PipelineType, Event, Context, Outcome
+│   └── state.py                 # PipelineState lifecycle
 │
-├── ingestion/           # GDELT, NewsAPI, RSS, Webhooks
-├── nlp/                 # Embedding, Entities, Sentiment, Summarization
-├── kg/                  # Knowledge Graph: nodes, edges, graph, queries
-├── features/            # Engineering, Signals, Feature Store
-├── training/            # Trainer, Model Registry, Evaluation
-├── forecasting/         # Forecaster, Prophet/LSTM, Ensemble
-├── backtesting/         # Engine, Risk Metrics, Reporting
-├── streaming/           # Kafka, Stream Processor, WebSocket, Sink
+├── config/                      # Configuration
+│   ├── settings.py              # Pydantic-settings (20+ env vars, MA_ prefix)
+│   └── schemas.py               # StageSchema, DataSourceSchema, PipelineSchema
 │
-├── intelligence/        # Conflict, Economic, Alternative, Global News
-│   ├── alternative/     # AIS, Flights, Satellite, Commodities
-│   └── news/            # Global News, Source Credibility
+├── orchestration/               # Workflow Engine
+│   ├── dag.py                   # NetworkX DiGraph with topological sort
+│   ├── scheduler.py             # Cron-based periodic execution
+│   ├── executor.py              # Thread-pooled async execution
+│   ├── workflow.py              # DAG → pipeline mapping + topological execution
+│   ├── triggers.py              # Cron, Event, Webhook triggers
+│   └── monitor.py               # Run tracking + metrics
 │
-├── similarity/          # Event Similarity: Embed → Qdrant → Match → Store
-├── explainability/      # SHAP → Graph Paths → Analogs → Generator
-├── daily/               # Full daily run: GDELT → ... → Store
-└── realtime/            # Full real-time: Kafka → ... → WebSocket
+├── data_factory/                # Core processing stages
+│   ├── collector.py             # GDELT, RSS, NewsAPI, Webhook collectors
+│   ├── cleaner.py               # Deduplicator, Normalizer, Validator
+│   ├── transformer.py           # SchemaMapper, EventBuilder
+│   ├── enricher.py              # GeoEnricher, EntityLinker, TemporalEnricher
+│   └── store.py                 # Postgres, Redis, S3, Qdrant stores
+│
+├── ingestion/                   # 4 ingestion pipelines
+├── nlp/                         # 4 NLP pipelines
+├── kg/                          # 4 Knowledge Graph pipelines
+├── features/                    # 3 feature pipelines
+├── training/                    # 3 training pipelines
+├── forecasting/                 # 3 forecasting pipelines
+├── backtesting/                 # 3 backtesting pipelines
+├── streaming/                   # 4 streaming pipelines
+├── similarity/                  # 5 similarity pipelines
+├── explainability/              # 4 explainability pipelines
+├── daily/                       # 7-stage daily pipeline
+├── realtime/                    # 6-stage realtime pipeline
+├── intelligence/                # 8 intelligence pipelines (conflict, economic, alternative, news)
+│
+└── config/                      # Settings + schemas
 ```
+
+---
+
+## Quick Start
+
+```bash
+# Install
+pip install -e .
+
+# Run the full DAG (all 42 pipelines)
+python -c "
+from pipelines import build_pipelines
+factory = build_pipelines()
+factory.run_all()
+"
+
+# Start the scheduler
+python -c "
+from pipelines import build_pipelines
+factory = build_pipelines()
+factory.start_scheduler()
+"
+```
+
+---
+
+## Configuration
+
+All settings via environment variables with `MA_` prefix:
+
+```bash
+# Required
+export MA_GDELT_API_KEY="your_key"
+export MA_NEWSAPI_KEY="your_key"
+
+# Optional (defaults to localhost)
+export MA_QDRANT_URL="http://localhost:6333"
+export MA_KAFKA_BOOTSTRAP="localhost:9092"
+export MA_REDIS_URL="redis://localhost:6379/0"
+export MA_POSTGRES_DSN="postgresql+asyncpg://user:pass@localhost:5432/marketatlas"
+export MA_S3_ENDPOINT="http://localhost:9000"
+export MA_MLFLOW_URI="http://localhost:5000"
+```
+
+---
+
+## Design Principles
+
+1. **Modular by construction** — Every pipeline is an independent stage-based unit
+2. **DAG-native** — Dependencies are explicit, execution is topological
+3. **Multi-trigger** — Cron, event, and webhook triggers on every pipeline
+4. **Resilient by default** — Every stage has retries, timeouts, and error handling
+5. **Observable** — Every run is tracked with duration, metrics, and outcomes
+6. **Extensible** — New pipelines register in one place and auto-join the DAG
+7. **Scale-ready** — From local laptop to distributed Kafka + S3 architecture
