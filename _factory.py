@@ -249,6 +249,10 @@ def build_pipelines(settings: Optional[PipelineSettings] = None) -> PipelineFact
     from world_state.pipeline.update import StateUpdatePipeline
     factory.register("world_state_update", StateUpdatePipeline())
 
+    # ── Memory Encoding ───────────────────────────────────────
+    from pipelines.memory.encoding import MemoryEncodingPipeline
+    factory.register("memory_encoding", MemoryEncodingPipeline())
+
     # ── Daily Pipeline ────────────────────────────────────────
     from pipelines.daily.pipeline import DailyPipeline
     factory.register("daily", DailyPipeline())
@@ -265,7 +269,7 @@ def build_pipelines(settings: Optional[PipelineSettings] = None) -> PipelineFact
     for node in [
         "ingestion_gdelt", "ingestion_newsapi", "ingestion_rss",
         "nlp_embedding", "nlp_entities", "nlp_sentiment", "nlp_summarization",
-        "kg_build", "world_state_update", "feature_engineering", "signal_generation",
+        "kg_build",         "world_state_update", "memory_encoding", "feature_engineering", "signal_generation",
         "training", "forecasting", "backtesting",
         "event_similarity", "explainability_shap",
         "intel_global_news", "intel_conflict", "intel_economic",
@@ -285,7 +289,8 @@ def build_pipelines(settings: Optional[PipelineSettings] = None) -> PipelineFact
         master_dag.add_edge(nlp, "kg_build")
 
     master_dag.add_edge("kg_build", "world_state_update")
-    master_dag.add_edge("world_state_update", "feature_engineering")
+    master_dag.add_edge("world_state_update", "memory_encoding")
+    master_dag.add_edge("memory_encoding", "feature_engineering")
     master_dag.add_edge("feature_engineering", "signal_generation")
     master_dag.add_edge("signal_generation", "training")
     master_dag.add_edge("training", "forecasting")
